@@ -14,3 +14,8 @@ export interface LoginResult {
 export interface ChangePasswordResult {
   id: string;
 }
+
+export interface RefreshResult {
+  accessToken: string;
+  refreshToken: string;
+}

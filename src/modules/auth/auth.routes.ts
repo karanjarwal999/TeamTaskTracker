@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { validate } from '@/middleware/validate.middleware';
 import { asyncHandler } from '@/middleware/async-handler';
 import { authController } from './auth.controller';
-import { loginSchema, changePasswordSchema } from './auth.validation';
+import { loginSchema, changePasswordSchema, refreshSchema } from './auth.validation';
 
 const router = Router();
 
@@ -18,5 +18,9 @@ router.post(
   validate({ body: changePasswordSchema }),
   asyncHandler(authController.changePassword),
 );
+
+// POST /auth/refresh
+// Rotates a valid refresh token into a new access + refresh pair.
+router.post('/refresh', validate({ body: refreshSchema }), asyncHandler(authController.refresh));
 
 export default router;

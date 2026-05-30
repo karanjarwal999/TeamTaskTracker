@@ -7,6 +7,10 @@ export const authRepository = {
     return User.findOne({ email: email.toLowerCase() });
   },
 
+  async findUserById(userId: string) {
+    return User.findById(userId);
+  },
+
   async userHasAnyMembership(userId: Types.ObjectId): Promise<boolean> {
     const hit = await Membership.exists({ userId });
     return hit !== null;
@@ -16,6 +20,17 @@ export const authRepository = {
     return User.findByIdAndUpdate(
       userId,
       { $set: { firebaseUid, isRegistered: true } },
+      { new: true },
+    );
+  },
+
+  // Atomically bumps refreshTokenVersion only if the incoming version still matches.
+  // Returns the updated user when bump succeeded; null when the version mismatched
+  // (i.e., the token is stale because someone else already rotated).
+  async bumpRefreshTokenVersionIfMatches(userId: string, expectedVersion: number) {
+    return User.findOneAndUpdate(
+      { _id: userId, refreshTokenVersion: expectedVersion },
+      { $inc: { refreshTokenVersion: 1 } },
       { new: true },
     );
   },

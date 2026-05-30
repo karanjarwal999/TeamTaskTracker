@@ -11,5 +11,10 @@ export const changePasswordSchema = z.object({
   newPassword: z.string().min(8, 'newPassword must be at least 8 characters'),
 });
 
+export const refreshSchema = z.object({
+  refreshToken: z.string().min(1),
+});
+
 export type LoginBody = z.infer<typeof loginSchema>;
 export type ChangePasswordBody = z.infer<typeof changePasswordSchema>;
+export type RefreshBody = z.infer<typeof refreshSchema>;

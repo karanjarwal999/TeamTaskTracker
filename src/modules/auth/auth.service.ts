@@ -1,9 +1,9 @@
 import { admin } from '@/config/firebase';
-import { signAccess, signRefresh } from '@/shared/jwt/jwt.helper';
+import { signAccess, signRefresh, verifyRefresh } from '@/shared/jwt/jwt.helper';
 import { UnauthorizedError, ForbiddenError } from '@/shared/errors/domain-errors';
 import { firebaseAuth, FirebaseSignInError } from '@/shared/firebase/firebase-auth';
 import { authRepository } from './auth.repository';
-import type { LoginResult, ChangePasswordResult } from './auth.types';
+import type { LoginResult, ChangePasswordResult, RefreshResult } from './auth.types';
 
 export const authService = {
   async login(email: string, password: string): Promise<LoginResult> {
@@ -79,5 +79,38 @@ export const authService = {
     await admin.auth().updateUser(signIn.localId, { password: newPassword });
 
     return { id: signIn.localId };
+  },
+
+  async refresh(refreshToken: string): Promise<RefreshResult> {
+    // 1) Verify signature + expiry on the refresh token.
+    let payload;
+    try {
+      payload = verifyRefresh(refreshToken);
+    } catch {
+      throw new UnauthorizedError('REFRESH_TOKEN_INVALID', 'Refresh token is invalid or expired');
+    }
+
+    // 2) Atomically bump refreshTokenVersion only if the token's version still matches.
+    // The atomicity prevents two concurrent refresh requests from both succeeding (one wins,
+    // the other sees a stale version and is rejected).
+    const updated = await authRepository.bumpRefreshTokenVersionIfMatches(
+      payload.userId,
+      payload.refreshTokenVersion,
+    );
+    if (!updated) {
+      throw new UnauthorizedError(
+        'REFRESH_TOKEN_INVALID',
+        'Refresh token has been rotated or revoked',
+      );
+    }
+
+    // 3) Issue a new access + refresh pair carrying the new version.
+    const userIdStr = String(updated._id);
+    const accessToken = signAccess({ userId: userIdStr, email: updated.email });
+    const newRefreshToken = signRefresh({
+      userId: userIdStr,
+      refreshTokenVersion: updated.refreshTokenVersion,
+    });
+    return { accessToken, refreshToken: newRefreshToken };
   },
 };
