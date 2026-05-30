@@ -1,11 +1,9 @@
-import 'dotenv/config';
+import { env } from './config/env';
 import app from './app';
 
-const PORT = Number(process.env.PORT) || 5000;
-
-const server = app.listen(PORT, () => {
+const server = app.listen(env.PORT, () => {
   // eslint-disable-next-line no-console
-  console.log(JSON.stringify({ level: 'info', msg: `Listening on :${PORT}` }));
+  console.log(JSON.stringify({ level: 'info', msg: `Listening on :${env.PORT}` }));
 });
 
 const shutdown = (signal: string): void => {
