@@ -4,36 +4,27 @@ import app from './app';
 import { connectMongo, disconnectMongo } from './db/connection/mongo';
 import { connectRedis, disconnectRedis } from './config/redis';
 import { initFirebase } from './config/firebase';
-
-/* eslint-disable no-console */
-const bootLog = (msg: string): void => {
-  console.log(JSON.stringify({ level: 'info', msg }));
-};
-
-const bootError = (msg: string, err?: unknown): void => {
-  console.error(JSON.stringify({ level: 'error', msg, err: String(err) }));
-};
-/* eslint-enable no-console */
+import { logger } from './shared/utils/logger';
 
 async function bootstrap(): Promise<void> {
   initFirebase();
-  bootLog('Firebase Admin initialized');
+  logger.info('Firebase Admin initialized');
 
   await connectMongo();
-  bootLog('Mongo connected');
+  logger.info('Mongo connected');
 
   await connectRedis();
-  bootLog('Redis connected');
+  logger.info('Redis connected');
 
   const server: Server = app.listen(env.PORT, () => {
-    bootLog(`Listening on :${env.PORT}`);
+    logger.info(`Listening on :${env.PORT}`);
   });
 
   let shuttingDown = false;
   const shutdown = async (signal: string): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
-    bootLog(`Received ${signal}, shutting down`);
+    logger.info(`Received ${signal}, shutting down`);
 
     // This is called graceful shutdown.
     // stops new incoming requests
@@ -55,6 +46,6 @@ async function bootstrap(): Promise<void> {
 }
 
 bootstrap().catch((err) => {
-  bootError('Bootstrap failed', err);
+  logger.error('Bootstrap failed', { err: String(err) });
   process.exit(1);
 });
