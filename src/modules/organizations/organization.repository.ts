@@ -14,13 +14,19 @@ interface CreateFirstAdminMembershipInput {
   invitedBy: Types.ObjectId | string;
 }
 
+export interface MembershipWithOrganization {
+  organization: {
+    _id: Types.ObjectId;
+    name: string;
+    createdBy: Types.ObjectId;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  role: Role;
+}
+
 export const organizationRepository = {
-  // Model.create with an array + { session } is the documented Mongoose 8 shape
-  // for associating a write with a transaction. Single-object form silently
-  // detaches from the session.
   async createOrganization(input: CreateOrganizationInput, session: ClientSession) {
-    // Model.create with a single-element input array always returns a one-element array;
-    // the `!` is safe because the call would have thrown otherwise.
     const docs = await Organization.create([input], { session });
     return docs[0]!;
   },
@@ -30,5 +36,37 @@ export const organizationRepository = {
       session,
     });
     return docs[0]!;
+  },
+
+  // Returns every org the user is a member of, paired with the user's role in that org.
+  async listOrganizationsForUser(userId: string): Promise<MembershipWithOrganization[]> {
+    // future option : This is simpler to read/maintain - we can have aggregate here instead of doing multiple queries + in-memory join.
+    const memberships = await Membership.find({ userId }).lean();
+    if (memberships.length === 0) return [];
+
+    const orgIds = memberships.map((m) => m.organizationId);
+    const orgs = await Organization.find({ _id: { $in: orgIds } }).lean();
+    const orgById = new Map(orgs.map((o) => [String(o._id), o]));
+
+    const out: MembershipWithOrganization[] = [];
+    for (const m of memberships) {
+      const org = orgById.get(String(m.organizationId));
+      if (!org) continue; // org deleted out from under the membership — skip
+      out.push({
+        organization: {
+          _id: org._id,
+          name: org.name,
+          createdBy: org.createdBy,
+          createdAt: org.createdAt,
+          updatedAt: org.updatedAt,
+        },
+        role: m.role as Role,
+      });
+    }
+    return out;
+  },
+
+  async findOrganizationById(organizationId: string) {
+    return Organization.findById(organizationId).lean();
   },
 };

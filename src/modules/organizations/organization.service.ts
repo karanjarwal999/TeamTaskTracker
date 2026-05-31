@@ -2,15 +2,27 @@ import mongoose from 'mongoose';
 import type { HydratedDocument } from 'mongoose';
 import type { OrganizationDocument } from '@/db/models/organization.model';
 import type { MembershipDocument } from '@/db/models/membership.model';
+import { NotFoundError } from '@/shared/errors/domain-errors';
 import { organizationRepository } from './organization.repository';
 import type {
   CreateOrganizationResult,
   OrganizationDto,
   MembershipDto,
+  OrganizationWithRoleDto,
 } from './organization.types';
 import type { Role } from '@/shared/enums/role.enum';
 
-function orgToDto(doc: HydratedDocument<OrganizationDocument>): OrganizationDto {
+interface OrganizationShape {
+  _id: unknown;
+  name: string;
+  createdBy: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+function orgToDto(
+  doc: HydratedDocument<OrganizationDocument> | OrganizationShape,
+): OrganizationDto {
   return {
     id: String(doc._id),
     name: doc.name,
@@ -43,6 +55,7 @@ export const organizationService = {
           { name, createdBy: userId },
           session,
         );
+        // self invite to org as ADMIN
         const membership = await organizationRepository.createFirstAdminMembership(
           { userId, organizationId: org._id, invitedBy: userId },
           session,
@@ -57,5 +70,21 @@ export const organizationService = {
     } finally {
       await session.endSession();
     }
+  },
+
+  async listMine(userId: string): Promise<OrganizationWithRoleDto[]> {
+    const rows = await organizationRepository.listOrganizationsForUser(userId);
+    return rows.map((row) => ({
+      organization: orgToDto(row.organization as OrganizationShape),
+      role: row.role,
+    }));
+  },
+
+  async getById(organizationId: string): Promise<OrganizationDto> {
+    const org = await organizationRepository.findOrganizationById(organizationId);
+    if (!org) {
+      throw new NotFoundError('ORGANIZATION_NOT_FOUND', 'Organization not found');
+    }
+    return orgToDto(org as OrganizationShape);
   },
 };

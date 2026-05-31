@@ -23,3 +23,8 @@ export interface CreateOrganizationResult {
   organization: OrganizationDto;
   membership: MembershipDto;
 }
+
+export interface OrganizationWithRoleDto {
+  organization: OrganizationDto;
+  role: Role;
+}
