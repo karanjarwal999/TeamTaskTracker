@@ -1,0 +1,3 @@
+export const INITIAL_PASSWORD_ALPHABET =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%';
+export const INITIAL_PASSWORD_LENGTH = 16;

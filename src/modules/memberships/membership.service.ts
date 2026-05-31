@@ -1,0 +1,150 @@
+import { randomInt } from 'crypto';
+import mongoose from 'mongoose';
+import type { HydratedDocument } from 'mongoose';
+import { admin } from '@/config/firebase';
+import { ConflictError } from '@/shared/errors/domain-errors';
+import { logger } from '@/shared/utils/logger';
+import { userRepository } from '@/modules/users/user.repository';
+import { membershipRepository } from './membership.repository';
+import { INITIAL_PASSWORD_ALPHABET, INITIAL_PASSWORD_LENGTH } from './membership.constants';
+import type { InviteResult, MembershipDto, UserSummaryDto } from './membership.types';
+import type { Role } from '@/shared/enums/role.enum';
+import type { UserDocument } from '@/db/models/user.model';
+import type { MembershipDocument } from '@/db/models/membership.model';
+
+function generateInitialPassword(): string {
+  let out = '';
+  for (let i = 0; i < INITIAL_PASSWORD_LENGTH; i++) {
+    out += INITIAL_PASSWORD_ALPHABET[randomInt(0, INITIAL_PASSWORD_ALPHABET.length)];
+  }
+  return out;
+}
+
+function isFirebaseEmailAlreadyExists(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code: unknown }).code === 'auth/email-already-exists'
+  );
+}
+
+function userToSummary(doc: HydratedDocument<UserDocument>): UserSummaryDto {
+  return {
+    id: String(doc._id),
+    email: doc.email,
+    name: doc.name,
+    isRegistered: doc.isRegistered ?? false,
+  };
+}
+
+function membershipToDto(doc: HydratedDocument<MembershipDocument>): MembershipDto {
+  return {
+    id: String(doc._id),
+    userId: String(doc.userId),
+    organizationId: String(doc.organizationId),
+    role: doc.role as Role,
+    invitedBy: String(doc.invitedBy),
+    joinedAt: doc.joinedAt as Date,
+    createdAt: doc.createdAt as Date,
+    updatedAt: doc.updatedAt as Date,
+  };
+}
+
+export const membershipService = {
+  async invite(
+    organizationId: string,
+    email: string,
+    role: Role,
+    invitedBy: string,
+  ): Promise<InviteResult> {
+    const normalizedEmail = email.toLowerCase();
+    const existingUser = await userRepository.findByEmail(normalizedEmail);
+
+    // Branch B: User already exists in our DB — Firebase user must already exist too;
+    if (existingUser) {
+      const existingMembership = await membershipRepository.findByUserAndOrg(
+        existingUser._id,
+        organizationId,
+      );
+      if (existingMembership) {
+        throw new ConflictError(
+          'MEMBERSHIP_EXISTS',
+          'User is already a member of this organization',
+        );
+      }
+
+      const session = await mongoose.startSession();
+      try {
+        let membership: HydratedDocument<MembershipDocument> | undefined;
+        await session.withTransaction(async () => {
+          membership = await membershipRepository.create(
+            { userId: existingUser._id, organizationId, role, invitedBy },
+            session,
+          );
+        });
+        logger.info('invite.dispatched', {
+          email: normalizedEmail,
+          role,
+          organizationId,
+          initialPassword: null,
+        });
+        return {
+          membership: membershipToDto(membership!),
+          user: userToSummary(existingUser),
+        };
+      } finally {
+        await session.endSession();
+      }
+    }
+
+    // Branch A: No local User. Provision a Firebase user, then create local records.
+    let firebaseUid: string;
+    let initialPassword: string | null = generateInitialPassword();
+    try {
+      const fbUser = await admin.auth().createUser({
+        email: normalizedEmail,
+        password: initialPassword,
+        emailVerified: false,
+      });
+      firebaseUid = fbUser.uid;
+    } catch (err) {
+      if (isFirebaseEmailAlreadyExists(err)) {
+        // Partial-state recovery: Firebase already has this user (no local record).
+        const fbUser = await admin.auth().getUserByEmail(normalizedEmail);
+        firebaseUid = fbUser.uid;
+        initialPassword = null;
+      } else {
+        throw err;
+      }
+    }
+
+    const session = await mongoose.startSession();
+    try {
+      let createdUser: HydratedDocument<UserDocument> | undefined;
+      let createdMembership: HydratedDocument<MembershipDocument> | undefined;
+      await session.withTransaction(async () => {
+        createdUser = await userRepository.create(
+          { email: normalizedEmail, name: normalizedEmail, firebaseUid },
+          session,
+        );
+        createdMembership = await membershipRepository.create(
+          { userId: createdUser._id, organizationId, role, invitedBy },
+          session,
+        );
+      });
+      logger.info('invite.dispatched', {
+        email: normalizedEmail,
+        role,
+        organizationId,
+        initialPassword,
+      });
+      return {
+        membership: membershipToDto(createdMembership!),
+        user: userToSummary(createdUser!),
+      };
+    } finally {
+      await session.endSession();
+    }
+  },
+};

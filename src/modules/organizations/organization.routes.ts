@@ -1,10 +1,14 @@
 import { Router } from 'express';
 import { authMiddleware } from '@/middleware/auth.middleware';
 import { organizationMiddleware } from '@/middleware/organization.middleware';
+import { rbac } from '@/middleware/rbac.middleware';
 import { validate } from '@/middleware/validate.middleware';
 import { asyncHandler } from '@/middleware/async-handler';
+import { Role } from '@/shared/enums/role.enum';
 import { organizationController } from './organization.controller';
 import { createOrganizationSchema } from './organization.validation';
+import { membershipController } from '@/modules/memberships/membership.controller';
+import { inviteSchema } from '@/modules/memberships/membership.validation';
 
 const router = Router();
 
@@ -29,6 +33,18 @@ router.get(
   authMiddleware,
   organizationMiddleware,
   asyncHandler(organizationController.getById),
+);
+
+// POST /organizations/:id/invite
+// ADMIN-only. Provisions a Firebase user (with random initial password) if needed,
+// creates the local User + Membership atomically, and logs the dispatch.
+router.post(
+  '/:id/invite',
+  authMiddleware,
+  organizationMiddleware,
+  rbac({ roles: [Role.ADMIN] }),
+  validate({ body: inviteSchema }),
+  asyncHandler(membershipController.invite),
 );
 
 export default router;
