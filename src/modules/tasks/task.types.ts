@@ -19,7 +19,14 @@ export interface ListTasksParams {
   page: number;
   limit: number;
   skip: number;
+  status?: TaskStatus;
+  priority?: TaskPriority;
   assigneeId?: string;
+  projectId?: string;
+  dueBefore?: Date;
+  dueAfter?: Date;
+  sortBy?: 'createdAt' | 'dueDate' | 'priority';
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface UpdateTaskInput {

@@ -97,16 +97,24 @@ export const taskService = {
     role: Role,
     query: ListTasksQuery,
   ): Promise<ListTasksResult> {
-    const params = parsePageLimit({ page: query.page, limit: query.limit });
-    // MEMBER sees only their assigned tasks; ADMIN/MANAGER see all in org.
-    const assigneeId = role === Role.MEMBER ? userId : undefined;
+    const pagination = parsePageLimit({ page: query.page, limit: query.limit });
+
+    const assigneeId = role === Role.MEMBER ? userId : query.assigneeId;
+
     const { rows, total } = await taskRepository.listInOrg(organizationId, {
-      ...params,
+      ...pagination,
+      status: query.status as TaskStatus | undefined,
+      priority: query.priority as TaskPriority | undefined,
       assigneeId,
+      projectId: query.projectId,
+      dueBefore: query.dueBefore,
+      dueAfter: query.dueAfter,
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
     });
     return {
       data: rows.map((r) => taskToDto(r as TaskLikeShape)),
-      pagination: buildPagination(params.page, params.limit, total),
+      pagination: buildPagination(pagination.page, pagination.limit, total),
     };
   },
 

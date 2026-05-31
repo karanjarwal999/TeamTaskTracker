@@ -29,6 +29,14 @@ export const createTaskSchema = z.object({
 });
 
 export const listTasksQuerySchema = z.object({
+  status: z.enum(TASK_STATUS_VALUES as [string, ...string[]]).optional(),
+  priority: z.enum(TASK_PRIORITY_VALUES as [string, ...string[]]).optional(),
+  assigneeId: z.string().regex(HEX24).optional(),
+  projectId: z.string().regex(HEX24).optional(),
+  dueBefore: z.coerce.date().optional(),
+  dueAfter: z.coerce.date().optional(),
+  sortBy: z.enum(['createdAt', 'dueDate', 'priority']).optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().optional(),
 });

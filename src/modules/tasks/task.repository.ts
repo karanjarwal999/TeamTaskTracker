@@ -10,13 +10,36 @@ export const taskRepository = {
     return Task.findOne({ _id: taskId, organizationId }).lean();
   },
 
-  // Org-scoped list. When `assigneeId` is set on the params, only tasks
-  // assigned to that user are returned — used by MEMBER role-scoping.
   async listInOrg(organizationId: string, params: ListTasksParams) {
-    const filter: { organizationId: string; assigneeId?: string } = { organizationId };
+    type DueDateRange = { $lt?: Date; $gt?: Date };
+    const filter: {
+      organizationId: string;
+      assigneeId?: string;
+      status?: string;
+      priority?: string;
+      projectId?: string;
+      dueDate?: DueDateRange;
+    } = { organizationId };
+
     if (params.assigneeId) filter.assigneeId = params.assigneeId;
+    if (params.status) filter.status = params.status;
+    if (params.priority) filter.priority = params.priority;
+    if (params.projectId) filter.projectId = params.projectId;
+    if (params.dueBefore || params.dueAfter) {
+      filter.dueDate = {};
+      if (params.dueBefore) filter.dueDate.$lt = params.dueBefore;
+      if (params.dueAfter) filter.dueDate.$gt = params.dueAfter;
+    }
+
+    const sortField = params.sortBy ?? 'createdAt';
+    const sortDir: 1 | -1 = params.sortOrder === 'asc' ? 1 : -1;
+
     const [rows, total] = await Promise.all([
-      Task.find(filter).sort({ createdAt: -1 }).skip(params.skip).limit(params.limit).lean(),
+      Task.find(filter)
+        .sort({ [sortField]: sortDir })
+        .skip(params.skip)
+        .limit(params.limit)
+        .lean(),
       Task.countDocuments(filter),
     ]);
     return { rows, total };
