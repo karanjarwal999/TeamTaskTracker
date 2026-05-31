@@ -1,13 +1,11 @@
 import { Task } from '@/db/models/task.model';
-import type { CreateTaskInput, ListTasksParams } from './task.types';
+import type { CreateTaskInput, ListTasksParams, UpdateTaskInput } from './task.types';
 
 export const taskRepository = {
   async create(input: CreateTaskInput) {
     return Task.create(input);
   },
 
-  // Org-scoped lookup (NFR-7 defense-in-depth). Returns null when the task
-  // doesn't exist OR belongs to a different organization.
   async findByIdInOrg(taskId: string, organizationId: string) {
     return Task.findOne({ _id: taskId, organizationId }).lean();
   },
@@ -22,5 +20,19 @@ export const taskRepository = {
       Task.countDocuments(filter),
     ]);
     return { rows, total };
+  },
+
+  async updateInOrg(
+    taskId: string,
+    organizationId: string,
+    update: UpdateTaskInput,
+    updatedBy: string,
+  ) {
+    const $set: Record<string, unknown> = { updatedBy };
+    // safe side- mongoose doesn't ignore undefined fields in findOneAndUpdate like it does in create/update
+    for (const [key, value] of Object.entries(update)) {
+      if (value !== undefined) $set[key] = value;
+    }
+    return Task.findOneAndUpdate({ _id: taskId, organizationId }, { $set }, { new: true }).lean();
   },
 };

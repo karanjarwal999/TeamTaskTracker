@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { successResponse } from '@/shared/helpers/response.helper';
 import { taskService } from './task.service';
-import type { CreateTaskBody, ListTasksQuery } from './task.validation';
+import type { CreateTaskBody, ListTasksQuery, UpdateTaskBody } from './task.validation';
 
 export const taskController = {
   async create(req: Request, res: Response): Promise<void> {
@@ -28,5 +28,14 @@ export const taskController = {
     const role = req.membership!.role;
     const task = await taskService.getById(taskId, organizationId, userId, role);
     successResponse(res, 'Task', task);
+  },
+
+  async update(req: Request, res: Response): Promise<void> {
+    const taskId = req.params.id as string;
+    const organizationId = req.membership!.organizationId;
+    const updatedBy = req.user!.userId;
+    const body = req.body as UpdateTaskBody;
+    const task = await taskService.update(taskId, organizationId, updatedBy, body);
+    successResponse(res, 'Task updated', task);
   },
 };

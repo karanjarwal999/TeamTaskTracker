@@ -32,6 +32,20 @@ export const listTasksQuerySchema = z.object({
   limit: z.coerce.number().int().positive().optional(),
 });
 
+export const updateTaskSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200).optional(),
+    description: z.string().trim().max(2000).optional(),
+    priority: z.enum(TASK_PRIORITY_VALUES as [string, ...string[]]).optional(),
+    assigneeId: z.string().regex(HEX24).nullable().optional(),
+    projectId: z.string().regex(HEX24).optional(),
+    dueDate: z.coerce.date().nullable().optional(),
+  })
+  .refine((d) => Object.values(d).some((v) => v !== undefined), {
+    message: 'at least one field is required',
+  });
+
 export type CreateTaskBody = z.infer<typeof createTaskSchema>;
 export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
+export type UpdateTaskBody = z.infer<typeof updateTaskSchema>;
 export type TaskIdParam = z.infer<typeof taskIdParamSchema>;

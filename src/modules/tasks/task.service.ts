@@ -6,8 +6,8 @@ import { buildPagination, parsePageLimit } from '@/shared/helpers/pagination.hel
 import { projectRepository } from '@/modules/projects/project.repository';
 import { membershipRepository } from '@/modules/memberships/membership.repository';
 import { taskRepository } from './task.repository';
-import type { CreateTaskBody, ListTasksQuery } from './task.validation';
-import type { ListTasksResult, TaskDto } from './task.types';
+import type { CreateTaskBody, ListTasksQuery, UpdateTaskBody } from './task.validation';
+import type { ListTasksResult, TaskDto, UpdateTaskInput } from './task.types';
 
 interface TaskLikeShape {
   _id: unknown;
@@ -119,5 +119,50 @@ export const taskService = {
       throw new NotFoundError('TASK_NOT_FOUND', 'Task not found in this organization');
     }
     return taskToDto(task as TaskLikeShape);
+  },
+
+  async update(
+    taskId: string,
+    organizationId: string,
+    updatedBy: string,
+    body: UpdateTaskBody,
+  ): Promise<TaskDto> {
+    // If projectId is being changed, the new project must be in this org.
+    if (body.projectId !== undefined) {
+      const project = await projectRepository.findByIdInOrg(body.projectId, organizationId);
+      if (!project) {
+        throw new NotFoundError('PROJECT_NOT_FOUND', 'Project not found in this organization');
+      }
+    }
+
+    // If assigneeId is being set to a non-null value, the assignee must be a member of this org.
+    if (body.assigneeId !== undefined && body.assigneeId !== null) {
+      const m = await membershipRepository.findByUserAndOrg(body.assigneeId, organizationId);
+      if (!m) {
+        throw new ValidationError(
+          'INVALID_ASSIGNEE',
+          'Assignee is not a member of this organization',
+        );
+      }
+    }
+
+    // dueDate (if being set to a real value) must still be in the future.
+    if (
+      body.dueDate !== undefined &&
+      body.dueDate !== null &&
+      body.dueDate.getTime() <= Date.now()
+    ) {
+      throw new ValidationError('VALIDATION_ERROR', 'dueDate must be in the future');
+    }
+
+    const repoUpdate: UpdateTaskInput = {
+      ...body,
+      priority: body.priority as TaskPriority,
+    };
+    const updated = await taskRepository.updateInOrg(taskId, organizationId, repoUpdate, updatedBy);
+    if (!updated) {
+      throw new NotFoundError('TASK_NOT_FOUND', 'Task not found in this organization');
+    }
+    return taskToDto(updated as TaskLikeShape);
   },
 };

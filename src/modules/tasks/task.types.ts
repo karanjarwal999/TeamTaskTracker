@@ -22,6 +22,15 @@ export interface ListTasksParams {
   assigneeId?: string;
 }
 
+export interface UpdateTaskInput {
+  title?: string;
+  description?: string;
+  priority?: TaskPriority;
+  assigneeId?: string | null;
+  projectId?: string;
+  dueDate?: Date | null;
+}
+
 export interface TaskDto {
   id: string;
   title: string;

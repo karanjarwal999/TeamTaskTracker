@@ -6,7 +6,12 @@ import { validate } from '@/middleware/validate.middleware';
 import { asyncHandler } from '@/middleware/async-handler';
 import { Role } from '@/shared/enums/role.enum';
 import { taskController } from './task.controller';
-import { createTaskSchema, listTasksQuerySchema, taskIdParamSchema } from './task.validation';
+import {
+  createTaskSchema,
+  listTasksQuerySchema,
+  taskIdParamSchema,
+  updateTaskSchema,
+} from './task.validation';
 
 const router = Router();
 
@@ -41,6 +46,17 @@ router.get(
   organizationMiddleware,
   validate({ params: taskIdParamSchema }),
   asyncHandler(taskController.getById),
+);
+
+// PATCH /tasks/:id
+// ADMIN/MANAGER only. Partial update of detail fields. Status has its own endpoint
+router.patch(
+  '/:id',
+  authMiddleware,
+  organizationMiddleware,
+  rbac({ roles: [Role.ADMIN, Role.MANAGER] }),
+  validate({ params: taskIdParamSchema, body: updateTaskSchema }),
+  asyncHandler(taskController.update),
 );
 
 export default router;
