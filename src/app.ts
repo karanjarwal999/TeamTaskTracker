@@ -8,6 +8,7 @@ import authRoutes from './modules/auth/auth.routes';
 import organizationRoutes from './modules/organizations/organization.routes';
 import membershipRoutes from './modules/memberships/membership.routes';
 import projectRoutes from './modules/projects/project.routes';
+import taskRoutes from './modules/tasks/task.routes';
 
 const app: Application = express();
 
@@ -26,6 +27,7 @@ app.use('/auth', authRoutes);
 app.use('/organizations', organizationRoutes);
 app.use('/memberships', membershipRoutes);
 app.use('/projects', projectRoutes);
+app.use('/tasks', taskRoutes);
 
 // Error handler MUST be the very last middleware.
 app.use(errorMiddleware);
