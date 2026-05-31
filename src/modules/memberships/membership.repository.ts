@@ -2,7 +2,11 @@ import type { ClientSession, Types } from 'mongoose';
 import { Membership } from '@/db/models/membership.model';
 import { User } from '@/db/models/user.model';
 import type { Role } from '@/shared/enums/role.enum';
-import type { CreateMembershipInput, MembershipWithUserRow } from './membership.types';
+import type {
+  CreateMembershipInput,
+  MembershipWithUserRow,
+  UpdateMembershipRoleInput,
+} from './membership.types';
 
 export const membershipRepository = {
   async findByUserAndOrg(userId: Types.ObjectId | string, organizationId: Types.ObjectId | string) {
@@ -40,5 +44,25 @@ export const membershipRepository = {
       });
     }
     return out;
+  },
+
+  async findByIdInOrg(membershipId: string, organizationId: string) {
+    return Membership.findOne({ _id: membershipId, organizationId }).lean();
+  },
+
+  async updateRoleInOrg(
+    membershipId: string,
+    organizationId: string,
+    update: UpdateMembershipRoleInput,
+  ) {
+    return Membership.findOneAndUpdate(
+      { _id: membershipId, organizationId },
+      { $set: { role: update.role } },
+      { new: true },
+    );
+  },
+
+  async deleteByIdInOrg(membershipId: string, organizationId: string) {
+    return Membership.findOneAndDelete({ _id: membershipId, organizationId });
   },
 };

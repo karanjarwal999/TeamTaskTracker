@@ -2,7 +2,7 @@ import { randomInt } from 'crypto';
 import mongoose from 'mongoose';
 import type { HydratedDocument } from 'mongoose';
 import { admin } from '@/config/firebase';
-import { ConflictError } from '@/shared/errors/domain-errors';
+import { ConflictError, NotFoundError } from '@/shared/errors/domain-errors';
 import { logger } from '@/shared/utils/logger';
 import { userRepository } from '@/modules/users/user.repository';
 import { membershipRepository } from './membership.repository';
@@ -164,5 +164,26 @@ export const membershipService = {
       joinedAt: r.joinedAt,
       createdAt: r.createdAt,
     }));
+  },
+
+  async updateRole(
+    membershipId: string,
+    organizationId: string,
+    role: Role,
+  ): Promise<MembershipDto> {
+    const updated = await membershipRepository.updateRoleInOrg(membershipId, organizationId, {
+      role,
+    });
+    if (!updated) {
+      throw new NotFoundError('MEMBERSHIP_NOT_FOUND', 'Membership not found in this organization');
+    }
+    return membershipToDto(updated);
+  },
+
+  async revoke(membershipId: string, organizationId: string): Promise<void> {
+    const deleted = await membershipRepository.deleteByIdInOrg(membershipId, organizationId);
+    if (!deleted) {
+      throw new NotFoundError('MEMBERSHIP_NOT_FOUND', 'Membership not found in this organization');
+    }
   },
 };

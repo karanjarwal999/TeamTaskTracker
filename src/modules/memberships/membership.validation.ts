@@ -7,3 +7,9 @@ export const inviteSchema = z.object({
 });
 
 export type InviteBody = z.infer<typeof inviteSchema>;
+
+export const updateRoleSchema = z.object({
+  role: z.enum(ROLE_VALUES as [string, ...string[]]),
+});
+
+export type UpdateRoleBody = z.infer<typeof updateRoleSchema>;

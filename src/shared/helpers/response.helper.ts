@@ -36,3 +36,7 @@ export function errorResponse(
     message,
   });
 }
+
+export function noContentResponse(res: Response): Response {
+  return res.status(204).end();
+}

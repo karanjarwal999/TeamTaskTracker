@@ -11,6 +11,10 @@ export interface CreateMembershipInput {
   invitedBy: Types.ObjectId | string;
 }
 
+export interface UpdateMembershipRoleInput {
+  role: Role;
+}
+
 // Repository output — row returned by membershipRepository.listForOrganization,
 // with the user's name + email joined in.
 export interface MembershipWithUserRow {
