@@ -10,6 +10,8 @@ export const taskRepository = {
     return Task.findOne({ _id: taskId, organizationId }).lean();
   },
 
+  // Org-scoped list. When `assigneeId` is set on the params, only tasks
+  // assigned to that user are returned — used by MEMBER role-scoping.
   async listInOrg(organizationId: string, params: ListTasksParams) {
     type DueDateRange = { $lt?: Date; $gt?: Date };
     const filter: {
