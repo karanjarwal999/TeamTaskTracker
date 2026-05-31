@@ -1,4 +1,4 @@
-Team Task Tracker API
+# Team Task Tracker API
 
 A backend-focused Team Task Tracker API built for the SDE II take-home assignment.
 
@@ -121,28 +121,51 @@ MongoDB
 Folder Structure
 
 src/
+
 ├── config/
+
 ├── db/
+
 │   ├── connection/
+
 │   ├── models/
+
 │   ├── indexes/
+
 │   ├── plugins/
+
 │   └── seed/
+
 │
+
 ├── modules/
+
 │   ├── auth/
+
 │   ├── users/
+
 │   ├── organizations/
+
 │   ├── memberships/
+
 │   ├── projects/
+
 │   ├── tasks/
+
 │   └── analytics/
+
 │
+
 ├── middleware/
+
 ├── shared/
+
 ├── routes/
+
 ├── app.ts
+
 └── server.ts
+
 
 ---
 
@@ -298,13 +321,21 @@ x-organization-id: organization_id
 RBAC Rules
 
 Action| ADMIN| MANAGER| MEMBER
+
 Create organization| ✅| ❌| ❌
+
 Invite users| ✅| ❌| ❌
+
 Create projects| ✅| ✅| ❌
+
 Create tasks| ✅| ✅| ❌
+
 Assign tasks| ✅| ✅| ❌
+
 View assigned tasks| ✅| ✅| ✅
+
 Update task status| ✅| ✅| Assigned only
+
 Delete tasks| ✅| ✅| ❌
 
 ---
@@ -428,7 +459,8 @@ Engineering Principles
 - Minimal overengineering
 
 
-Reviewer Notes
+
+## Reviewer Notes
 
 Due to limited availability during the assignment window, the primary focus of this implementation was on:
 
