@@ -10,7 +10,8 @@
     "start": "node dist/server.js",
     "test": "jest --runInBand",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "format": "prettier --write \"**/*.{ts,json,md}\""
+    "format": "prettier --write \"**/*.{ts,json,md}\"",
+    "seed:admin": "ts-node-dev --transpile-only --notify=false -r tsconfig-paths/register src/db/seed/admin.seed.ts"
   },
   "engines": {
     "node": ">=20"
