@@ -47,4 +47,8 @@ export const taskRepository = {
     if (completedAt !== undefined) $set.completedAt = completedAt;
     return Task.findOneAndUpdate({ _id: taskId, organizationId }, { $set }, { new: true }).lean();
   },
+
+  async deleteByIdInOrg(taskId: string, organizationId: string) {
+    return Task.findOneAndDelete({ _id: taskId, organizationId }).lean();
+  },
 };

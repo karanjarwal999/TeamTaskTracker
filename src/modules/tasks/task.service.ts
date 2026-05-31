@@ -210,4 +210,11 @@ export const taskService = {
     }
     return taskToDto(updated as TaskLikeShape);
   },
+
+  async delete(taskId: string, organizationId: string): Promise<void> {
+    const deleted = await taskRepository.deleteByIdInOrg(taskId, organizationId);
+    if (!deleted) {
+      throw new NotFoundError('TASK_NOT_FOUND', 'Task not found in this organization');
+    }
+  },
 };

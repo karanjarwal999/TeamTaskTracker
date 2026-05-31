@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { successResponse } from '@/shared/helpers/response.helper';
+import { noContentResponse, successResponse } from '@/shared/helpers/response.helper';
 import { taskService } from './task.service';
 import type {
   CreateTaskBody,
@@ -59,5 +59,12 @@ export const taskController = {
       status as TaskStatus,
     );
     successResponse(res, 'Task status updated', task);
+  },
+
+  async remove(req: Request, res: Response): Promise<void> {
+    const taskId = req.params.id as string;
+    const organizationId = req.membership!.organizationId;
+    await taskService.delete(taskId, organizationId);
+    noContentResponse(res);
   },
 };

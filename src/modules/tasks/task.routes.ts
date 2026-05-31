@@ -71,4 +71,15 @@ router.patch(
   asyncHandler(taskController.transitionStatus),
 );
 
+// DELETE /tasks/:id
+// ADMIN/MANAGER only. Hard delete
+router.delete(
+  '/:id',
+  authMiddleware,
+  organizationMiddleware,
+  rbac({ roles: [Role.ADMIN, Role.MANAGER] }),
+  validate({ params: taskIdParamSchema }),
+  asyncHandler(taskController.remove),
+);
+
 export default router;
