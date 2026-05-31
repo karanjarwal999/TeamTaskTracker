@@ -7,7 +7,12 @@ import { logger } from '@/shared/utils/logger';
 import { userRepository } from '@/modules/users/user.repository';
 import { membershipRepository } from './membership.repository';
 import { INITIAL_PASSWORD_ALPHABET, INITIAL_PASSWORD_LENGTH } from './membership.constants';
-import type { InviteResult, MembershipDto, UserSummaryDto } from './membership.types';
+import type {
+  InviteResult,
+  MembershipDto,
+  MembershipWithUserDto,
+  UserSummaryDto,
+} from './membership.types';
 import type { Role } from '@/shared/enums/role.enum';
 import type { UserDocument } from '@/db/models/user.model';
 import type { MembershipDocument } from '@/db/models/membership.model';
@@ -146,5 +151,18 @@ export const membershipService = {
     } finally {
       await session.endSession();
     }
+  },
+
+  async listForOrganization(organizationId: string): Promise<MembershipWithUserDto[]> {
+    const rows = await membershipRepository.listForOrganization(organizationId);
+    return rows.map((r) => ({
+      id: String(r._id),
+      userId: String(r.userId),
+      organizationId: String(r.organizationId),
+      role: r.role,
+      user: { name: r.user.name, email: r.user.email },
+      joinedAt: r.joinedAt,
+      createdAt: r.createdAt,
+    }));
   },
 };

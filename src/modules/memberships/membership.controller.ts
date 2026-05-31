@@ -23,4 +23,14 @@ export const membershipController = {
     );
     successResponse(res, 'Invite dispatched', result, 201);
   },
+
+  async listForOrganization(req: Request, res: Response): Promise<void> {
+    const paramId = req.params.id;
+    const contextId = req.membership!.organizationId;
+    if (paramId !== contextId) {
+      throw new NotFoundError('ORGANIZATION_NOT_FOUND', 'Organization not found in this context');
+    }
+    const data = await membershipService.listForOrganization(contextId);
+    successResponse(res, 'Memberships', data);
+  },
 };

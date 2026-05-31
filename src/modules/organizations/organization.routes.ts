@@ -47,4 +47,14 @@ router.post(
   asyncHandler(membershipController.invite),
 );
 
+// GET /organizations/:id/memberships
+// Lists every membership in the org with name+email of each user.
+// Any role (ADMIN/MANAGER/MEMBER) can read; no rbac gate.
+router.get(
+  '/:id/memberships',
+  authMiddleware,
+  organizationMiddleware,
+  asyncHandler(membershipController.listForOrganization),
+);
+
 export default router;
