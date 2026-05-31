@@ -72,15 +72,15 @@ PORT=5000
 NODE_ENV=development
 
 # MongoDB Atlas connection string (mongodb+srv://...)
-MONGO_URI=
+MONGO_URI=MONGO_URI=mongodb://localhost:27017/team-task-tracker
 
 # Redis. When running via docker compose, use redis://redis:6379
 # When running the API directly on the host, use redis://localhost:6379
 REDIS_URL=redis://redis:6379
 
 # JWT secrets — any sufficiently random strings
-JWT_SECRET=
-JWT_REFRESH_SECRET=
+JWT_SECRET=your_jwt_secret_here
+JWT_REFRESH_SECRET=your_jwt_refresh_secret_here
 ACCESS_TOKEN_EXPIRES_IN=15m
 REFRESH_TOKEN_EXPIRES_IN=7d
 
@@ -95,11 +95,11 @@ FIREBASE_PRIVATE_KEY=
 FIREBASE_API_KEY=
 
 # Comma-separated list, e.g. http://localhost:3000,https://app.example.com
-CORS_ORIGINS=
+CORS_ORIGINS=http://localhost:3000
 
 # --- Admin bootstrap (consumed by `npm run seed:admin`) ---
 ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=AdminPass#1234
+ADMIN_PASSWORD=AdminPass@1234
 ADMIN_NAME=System Admin
 BOOTSTRAP_ORG_NAME=Bootstrap Organization
 ```
