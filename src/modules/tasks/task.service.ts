@@ -1,11 +1,13 @@
 import { NotFoundError, ValidationError } from '@/shared/errors/domain-errors';
 import { TaskStatus } from '@/shared/enums/task-status.enum';
 import { TaskPriority } from '@/shared/enums/task-priority.enum';
+import { Role } from '@/shared/enums/role.enum';
+import { buildPagination, parsePageLimit } from '@/shared/helpers/pagination.helper';
 import { projectRepository } from '@/modules/projects/project.repository';
 import { membershipRepository } from '@/modules/memberships/membership.repository';
 import { taskRepository } from './task.repository';
-import type { CreateTaskBody } from './task.validation';
-import type { TaskDto } from './task.types';
+import type { CreateTaskBody, ListTasksQuery } from './task.validation';
+import type { ListTasksResult, TaskDto } from './task.types';
 
 interface TaskLikeShape {
   _id: unknown;
@@ -81,5 +83,41 @@ export const taskService = {
       createdBy,
     });
     return taskToDto(doc as TaskLikeShape);
+  },
+
+  async list(
+    organizationId: string,
+    userId: string,
+    role: Role,
+    query: ListTasksQuery,
+  ): Promise<ListTasksResult> {
+    const params = parsePageLimit({ page: query.page, limit: query.limit });
+    // MEMBER sees only their assigned tasks; ADMIN/MANAGER see all in org.
+    const assigneeId = role === Role.MEMBER ? userId : undefined;
+    const { rows, total } = await taskRepository.listInOrg(organizationId, {
+      ...params,
+      assigneeId,
+    });
+    return {
+      data: rows.map((r) => taskToDto(r as TaskLikeShape)),
+      pagination: buildPagination(params.page, params.limit, total),
+    };
+  },
+
+  async getById(
+    taskId: string,
+    organizationId: string,
+    userId: string,
+    role: Role,
+  ): Promise<TaskDto> {
+    const task = await taskRepository.findByIdInOrg(taskId, organizationId);
+    if (!task) {
+      throw new NotFoundError('TASK_NOT_FOUND', 'Task not found in this organization');
+    }
+    // MEMBER check  - we can also use above (get list route) logic
+    if (role === Role.MEMBER && String(task.assigneeId) !== userId) {
+      throw new NotFoundError('TASK_NOT_FOUND', 'Task not found in this organization');
+    }
+    return taskToDto(task as TaskLikeShape);
   },
 };

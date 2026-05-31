@@ -27,5 +27,11 @@ export const createTaskSchema = z.object({
   dueDate: z.coerce.date().optional(),
 });
 
+export const listTasksQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().positive().optional(),
+});
+
 export type CreateTaskBody = z.infer<typeof createTaskSchema>;
+export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
 export type TaskIdParam = z.infer<typeof taskIdParamSchema>;

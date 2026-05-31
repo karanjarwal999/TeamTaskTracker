@@ -1,6 +1,7 @@
 import type { Types } from 'mongoose';
 import type { TaskStatus } from '@/shared/enums/task-status.enum';
 import type { TaskPriority } from '@/shared/enums/task-priority.enum';
+import type { Pagination } from '@/shared/helpers/response.helper';
 
 export interface CreateTaskInput {
   title: string;
@@ -12,6 +13,13 @@ export interface CreateTaskInput {
   dueDate?: Date;
   organizationId: Types.ObjectId | string;
   createdBy: Types.ObjectId | string;
+}
+
+export interface ListTasksParams {
+  page: number;
+  limit: number;
+  skip: number;
+  assigneeId?: string;
 }
 
 export interface TaskDto {
@@ -29,4 +37,9 @@ export interface TaskDto {
   completedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface ListTasksResult {
+  data: TaskDto[];
+  pagination: Pagination;
 }
