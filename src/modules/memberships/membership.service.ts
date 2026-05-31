@@ -101,6 +101,7 @@ export const membershipService = {
         return {
           membership: membershipToDto(membership!),
           user: userToSummary(existingUser),
+          initialPassword: null,
         };
       } finally {
         await session.endSession();
@@ -153,6 +154,7 @@ export const membershipService = {
       return {
         membership: membershipToDto(createdMembership!),
         user: userToSummary(createdUser!),
+        initialPassword,
       };
     } finally {
       await session.endSession();

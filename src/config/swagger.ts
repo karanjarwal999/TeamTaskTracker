@@ -291,11 +291,16 @@ const paths: ZodOpenApiPathsObject = {
       requestBody: { content: { 'application/json': { schema: inviteSchema } } },
       responses: {
         '201': {
-          description: 'Invite dispatched.',
+          description:
+            'Invite dispatched. When a new Firebase user was provisioned, `initialPassword` contains the generated password — share it with the invitee (email delivery is a future improvement). `null` when the user already existed.',
           content: {
             'application/json': {
               schema: successOf(
-                z.object({ membership: MembershipSchema, user: UserSummarySchema }),
+                z.object({
+                  membership: MembershipSchema,
+                  user: UserSummarySchema,
+                  initialPassword: z.string().nullable(),
+                }),
               ),
             },
           },

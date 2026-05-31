@@ -21,7 +21,14 @@ export const membershipController = {
       body.role as Role,
       invitedBy,
     );
-    successResponse(res, 'Invite dispatched', result, 201);
+    // v1 carve-out: SMTP delivery is a future improvement. Until then we hand
+    // the initial password back in the response so the admin can share it
+    // with the invitee directly.
+    const message =
+      result.initialPassword !== null
+        ? 'Invite dispatched. Share initialPassword with the invitee (email delivery is a future improvement).'
+        : 'Invite dispatched.';
+    successResponse(res, message, result, 201);
   },
 
   async listForOrganization(req: Request, res: Response): Promise<void> {

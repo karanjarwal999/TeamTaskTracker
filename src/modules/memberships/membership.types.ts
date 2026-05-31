@@ -33,6 +33,11 @@ export interface MembershipWithUserRow {
 export interface InviteResult {
   membership: MembershipDto;
   user: UserSummaryDto;
+  // v1 carve-out: real SMTP delivery is a future improvement. Until then the
+  // initial password is returned in the API response so the admin can hand it
+  // off to the invitee. `null` when no new password was minted (user already
+  // existed locally, or Firebase user existed without a local record).
+  initialPassword: string | null;
 }
 
 export interface MembershipWithUserDto {
