@@ -5,6 +5,7 @@ import { requestIdMiddleware } from './middleware/request-id.middleware';
 import { errorMiddleware } from './middleware/error.middleware';
 import { successResponse } from './shared/helpers/response.helper';
 import authRoutes from './modules/auth/auth.routes';
+import organizationRoutes from './modules/organizations/organization.routes';
 
 const app: Application = express();
 
@@ -20,6 +21,7 @@ app.get('/health', (_req: Request, res: Response) => {
 
 // Module routes
 app.use('/auth', authRoutes);
+app.use('/organizations', organizationRoutes);
 
 // Error handler MUST be the very last middleware.
 app.use(errorMiddleware);
