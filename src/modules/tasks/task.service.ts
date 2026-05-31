@@ -1,4 +1,9 @@
-import { NotFoundError, ValidationError } from '@/shared/errors/domain-errors';
+import {
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+  WorkflowError,
+} from '@/shared/errors/domain-errors';
 import { TaskStatus } from '@/shared/enums/task-status.enum';
 import { TaskPriority } from '@/shared/enums/task-priority.enum';
 import { Role } from '@/shared/enums/role.enum';
@@ -6,6 +11,7 @@ import { buildPagination, parsePageLimit } from '@/shared/helpers/pagination.hel
 import { projectRepository } from '@/modules/projects/project.repository';
 import { membershipRepository } from '@/modules/memberships/membership.repository';
 import { taskRepository } from './task.repository';
+import { isAllowedTransition } from './task.transitions';
 import type { CreateTaskBody, ListTasksQuery, UpdateTaskBody } from './task.validation';
 import type { ListTasksResult, TaskDto, UpdateTaskInput } from './task.types';
 
@@ -160,6 +166,45 @@ export const taskService = {
       priority: body.priority as TaskPriority,
     };
     const updated = await taskRepository.updateInOrg(taskId, organizationId, repoUpdate, updatedBy);
+    if (!updated) {
+      throw new NotFoundError('TASK_NOT_FOUND', 'Task not found in this organization');
+    }
+    return taskToDto(updated as TaskLikeShape);
+  },
+
+  async transitionStatus(
+    taskId: string,
+    organizationId: string,
+    userId: string,
+    role: Role,
+    nextStatus: TaskStatus,
+  ): Promise<TaskDto> {
+    const task = await taskRepository.findByIdInOrg(taskId, organizationId);
+    if (!task) {
+      throw new NotFoundError('TASK_NOT_FOUND', 'Task not found in this organization');
+    }
+
+    // MEMBER may only transition tasks assigned to them
+    if (role === Role.MEMBER && String(task.assigneeId) !== userId) {
+      throw new ForbiddenError('NOT_ASSIGNEE', 'Cannot transition tasks not assigned to you');
+    }
+
+    const currentStatus = task.status as TaskStatus;
+    if (!isAllowedTransition(currentStatus, nextStatus)) {
+      throw new WorkflowError(
+        'INVALID_TRANSITION',
+        `Cannot transition ${currentStatus} → ${nextStatus}`,
+      );
+    }
+
+    const completedAt = nextStatus === TaskStatus.DONE ? new Date() : undefined;
+    const updated = await taskRepository.setStatusInOrg(
+      taskId,
+      organizationId,
+      nextStatus,
+      userId,
+      completedAt,
+    );
     if (!updated) {
       throw new NotFoundError('TASK_NOT_FOUND', 'Task not found in this organization');
     }

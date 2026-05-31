@@ -10,6 +10,7 @@ import {
   createTaskSchema,
   listTasksQuerySchema,
   taskIdParamSchema,
+  transitionStatusSchema,
   updateTaskSchema,
 } from './task.validation';
 
@@ -57,6 +58,17 @@ router.patch(
   rbac({ roles: [Role.ADMIN, Role.MANAGER] }),
   validate({ params: taskIdParamSchema, body: updateTaskSchema }),
   asyncHandler(taskController.update),
+);
+
+// PATCH /tasks/:id/status
+// All roles allowed; the assignee-only constraint for MEMBER is enforced in the
+router.patch(
+  '/:id/status',
+  authMiddleware,
+  organizationMiddleware,
+  rbac({ roles: [Role.ADMIN, Role.MANAGER, Role.MEMBER] }),
+  validate({ params: taskIdParamSchema, body: transitionStatusSchema }),
+  asyncHandler(taskController.transitionStatus),
 );
 
 export default router;

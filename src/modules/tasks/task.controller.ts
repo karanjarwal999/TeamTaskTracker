@@ -1,7 +1,13 @@
 import type { Request, Response } from 'express';
 import { successResponse } from '@/shared/helpers/response.helper';
 import { taskService } from './task.service';
-import type { CreateTaskBody, ListTasksQuery, UpdateTaskBody } from './task.validation';
+import type {
+  CreateTaskBody,
+  ListTasksQuery,
+  TransitionStatusBody,
+  UpdateTaskBody,
+} from './task.validation';
+import type { TaskStatus } from '@/shared/enums/task-status.enum';
 
 export const taskController = {
   async create(req: Request, res: Response): Promise<void> {
@@ -37,5 +43,21 @@ export const taskController = {
     const body = req.body as UpdateTaskBody;
     const task = await taskService.update(taskId, organizationId, updatedBy, body);
     successResponse(res, 'Task updated', task);
+  },
+
+  async transitionStatus(req: Request, res: Response): Promise<void> {
+    const taskId = req.params.id as string;
+    const organizationId = req.membership!.organizationId;
+    const userId = req.user!.userId;
+    const role = req.membership!.role;
+    const { status } = req.body as TransitionStatusBody;
+    const task = await taskService.transitionStatus(
+      taskId,
+      organizationId,
+      userId,
+      role,
+      status as TaskStatus,
+    );
+    successResponse(res, 'Task status updated', task);
   },
 };

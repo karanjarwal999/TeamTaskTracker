@@ -35,4 +35,16 @@ export const taskRepository = {
     }
     return Task.findOneAndUpdate({ _id: taskId, organizationId }, { $set }, { new: true }).lean();
   },
+
+  async setStatusInOrg(
+    taskId: string,
+    organizationId: string,
+    status: string,
+    updatedBy: string,
+    completedAt?: Date,
+  ) {
+    const $set: Record<string, unknown> = { status, updatedBy };
+    if (completedAt !== undefined) $set.completedAt = completedAt;
+    return Task.findOneAndUpdate({ _id: taskId, organizationId }, { $set }, { new: true }).lean();
+  },
 };

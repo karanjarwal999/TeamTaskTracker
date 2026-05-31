@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TASK_PRIORITY_VALUES } from '@/shared/enums/task-priority.enum';
+import { TASK_STATUS_VALUES } from '@/shared/enums/task-status.enum';
 
 const HEX24 = /^[a-f0-9]{24}$/i;
 
@@ -45,7 +46,12 @@ export const updateTaskSchema = z
     message: 'at least one field is required',
   });
 
+export const transitionStatusSchema = z.object({
+  status: z.enum(TASK_STATUS_VALUES as [string, ...string[]]),
+});
+
 export type CreateTaskBody = z.infer<typeof createTaskSchema>;
 export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
 export type UpdateTaskBody = z.infer<typeof updateTaskSchema>;
+export type TransitionStatusBody = z.infer<typeof transitionStatusSchema>;
 export type TaskIdParam = z.infer<typeof taskIdParamSchema>;
