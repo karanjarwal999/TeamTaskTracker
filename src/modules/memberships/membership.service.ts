@@ -4,6 +4,8 @@ import type { HydratedDocument } from 'mongoose';
 import { admin } from '@/config/firebase';
 import { ConflictError, NotFoundError } from '@/shared/errors/domain-errors';
 import { logger } from '@/shared/utils/logger';
+import { cacheService } from '@/shared/cache/cache.service';
+import { buildOrgListCacheKey } from '@/modules/organizations/organization.constants';
 import { userRepository } from '@/modules/users/user.repository';
 import { membershipRepository } from './membership.repository';
 import { INITIAL_PASSWORD_ALPHABET, INITIAL_PASSWORD_LENGTH } from './membership.constants';
@@ -94,6 +96,8 @@ export const membershipService = {
           organizationId,
           initialPassword: null,
         });
+        // The invitee just gained a new org membership → their listMine is stale.
+        await cacheService.invalidate(buildOrgListCacheKey(String(existingUser._id)));
         return {
           membership: membershipToDto(membership!),
           user: userToSummary(existingUser),
@@ -144,6 +148,8 @@ export const membershipService = {
         organizationId,
         initialPassword,
       });
+      // New invitee — their listMine cache (if any pre-warmed) is now stale.
+      await cacheService.invalidate(buildOrgListCacheKey(String(createdUser!._id)));
       return {
         membership: membershipToDto(createdMembership!),
         user: userToSummary(createdUser!),
@@ -177,6 +183,8 @@ export const membershipService = {
     if (!updated) {
       throw new NotFoundError('MEMBERSHIP_NOT_FOUND', 'Membership not found in this organization');
     }
+    // The affected user's listMine returns role-per-org; that role just changed.
+    await cacheService.invalidate(buildOrgListCacheKey(String(updated.userId)));
     return membershipToDto(updated);
   },
 
@@ -185,5 +193,7 @@ export const membershipService = {
     if (!deleted) {
       throw new NotFoundError('MEMBERSHIP_NOT_FOUND', 'Membership not found in this organization');
     }
+    // The revoked user just lost an org → drop their cached listMine.
+    await cacheService.invalidate(buildOrgListCacheKey(String(deleted.userId)));
   },
 };

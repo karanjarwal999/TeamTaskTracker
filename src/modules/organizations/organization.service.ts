@@ -3,7 +3,9 @@ import type { HydratedDocument } from 'mongoose';
 import type { OrganizationDocument } from '@/db/models/organization.model';
 import type { MembershipDocument } from '@/db/models/membership.model';
 import { NotFoundError } from '@/shared/errors/domain-errors';
+import { cacheService } from '@/shared/cache/cache.service';
 import { organizationRepository } from './organization.repository';
+import { ORG_LIST_CACHE_TTL_SECONDS, buildOrgListCacheKey } from './organization.constants';
 import type {
   CreateOrganizationResult,
   OrganizationDto,
@@ -66,6 +68,8 @@ export const organizationService = {
         };
       });
       // withTransaction guarantees the closure ran to completion if no error was thrown.
+      // The caller just got a new org → their listMine cache is stale.
+      await cacheService.invalidate(buildOrgListCacheKey(userId));
       return result as CreateOrganizationResult;
     } finally {
       await session.endSession();
@@ -73,11 +77,17 @@ export const organizationService = {
   },
 
   async listMine(userId: string): Promise<OrganizationWithRoleDto[]> {
+    const cacheKey = buildOrgListCacheKey(userId);
+    const cached = await cacheService.get<OrganizationWithRoleDto[]>(cacheKey);
+    if (cached) return cached;
+
     const rows = await organizationRepository.listOrganizationsForUser(userId);
-    return rows.map((row) => ({
+    const result: OrganizationWithRoleDto[] = rows.map((row) => ({
       organization: orgToDto(row.organization as OrganizationShape),
       role: row.role,
     }));
+    await cacheService.set(cacheKey, result, ORG_LIST_CACHE_TTL_SECONDS);
+    return result;
   },
 
   async getById(organizationId: string): Promise<OrganizationDto> {

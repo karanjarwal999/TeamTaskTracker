@@ -1,6 +1,12 @@
 import { NotFoundError } from '@/shared/errors/domain-errors';
 import { buildPagination, parsePageLimit } from '@/shared/helpers/pagination.helper';
+import { cacheService } from '@/shared/cache/cache.service';
 import { projectRepository } from './project.repository';
+import {
+  PROJECT_LIST_CACHE_TTL_SECONDS,
+  buildProjectListCacheKey,
+  buildProjectOrgInvalidationPattern,
+} from './project.constants';
 import type { ListProjectsResult, ProjectDto, UpdateProjectInput } from './project.types';
 import type { ListProjectsQuery } from './project.validation';
 
@@ -34,6 +40,7 @@ export const projectService = {
     createdBy: string,
   ): Promise<ProjectDto> {
     const doc = await projectRepository.create({ name, description, organizationId, createdBy });
+    await cacheService.invalidatePattern(buildProjectOrgInvalidationPattern(organizationId));
     return projectToDto(doc as ProjectLikeShape);
   },
 
@@ -48,11 +55,18 @@ export const projectService = {
 
   async list(organizationId: string, query: ListProjectsQuery): Promise<ListProjectsResult> {
     const params = parsePageLimit({ page: query.page, limit: query.limit });
+    const cacheKey = buildProjectListCacheKey(organizationId, params.page, params.limit);
+
+    const cached = await cacheService.get<ListProjectsResult>(cacheKey);
+    if (cached) return cached;
+
     const { rows, total } = await projectRepository.listInOrg(organizationId, params);
-    return {
+    const result: ListProjectsResult = {
       data: rows.map((r) => projectToDto(r as ProjectLikeShape)),
       pagination: buildPagination(params.page, params.limit, total),
     };
+    await cacheService.set(cacheKey, result, PROJECT_LIST_CACHE_TTL_SECONDS);
+    return result;
   },
 
   async update(
@@ -64,6 +78,7 @@ export const projectService = {
     if (!doc) {
       throw new NotFoundError('PROJECT_NOT_FOUND', 'Project not found in this organization');
     }
+    await cacheService.invalidatePattern(buildProjectOrgInvalidationPattern(organizationId));
     return projectToDto(doc as ProjectLikeShape);
   },
 
@@ -72,5 +87,6 @@ export const projectService = {
     if (!doc) {
       throw new NotFoundError('PROJECT_NOT_FOUND', 'Project not found in this organization');
     }
+    await cacheService.invalidatePattern(buildProjectOrgInvalidationPattern(organizationId));
   },
 };

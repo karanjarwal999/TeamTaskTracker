@@ -8,10 +8,16 @@ import { TaskStatus } from '@/shared/enums/task-status.enum';
 import { TaskPriority } from '@/shared/enums/task-priority.enum';
 import { Role } from '@/shared/enums/role.enum';
 import { buildPagination, parsePageLimit } from '@/shared/helpers/pagination.helper';
+import { cacheService } from '@/shared/cache/cache.service';
 import { projectRepository } from '@/modules/projects/project.repository';
 import { membershipRepository } from '@/modules/memberships/membership.repository';
 import { taskRepository } from './task.repository';
 import { isAllowedTransition } from './task.transitions';
+import {
+  TASK_CACHE_TTL_SECONDS,
+  buildTaskListCacheKey,
+  buildTaskOrgInvalidationPattern,
+} from './task.constants';
 import type { CreateTaskBody, ListTasksQuery, UpdateTaskBody } from './task.validation';
 import type { ListTasksResult, TaskDto, UpdateTaskInput } from './task.types';
 
@@ -88,6 +94,7 @@ export const taskService = {
       organizationId,
       createdBy,
     });
+    await cacheService.invalidatePattern(buildTaskOrgInvalidationPattern(organizationId));
     return taskToDto(doc as TaskLikeShape);
   },
 
@@ -101,6 +108,27 @@ export const taskService = {
 
     const assigneeId = role === Role.MEMBER ? userId : query.assigneeId;
 
+    const filters = {
+      status: query.status,
+      priority: query.priority,
+      assigneeId,
+      projectId: query.projectId,
+      dueBefore: query.dueBefore,
+      dueAfter: query.dueAfter,
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
+    };
+    const cacheKey = buildTaskListCacheKey({
+      orgId: organizationId,
+      userId,
+      page: pagination.page,
+      limit: pagination.limit,
+      filters,
+    });
+
+    const cached = await cacheService.get<ListTasksResult>(cacheKey);
+    if (cached) return cached;
+
     const { rows, total } = await taskRepository.listInOrg(organizationId, {
       ...pagination,
       status: query.status as TaskStatus | undefined,
@@ -112,10 +140,12 @@ export const taskService = {
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
     });
-    return {
+    const result: ListTasksResult = {
       data: rows.map((r) => taskToDto(r as TaskLikeShape)),
       pagination: buildPagination(pagination.page, pagination.limit, total),
     };
+    await cacheService.set(cacheKey, result, TASK_CACHE_TTL_SECONDS);
+    return result;
   },
 
   async getById(
@@ -177,6 +207,7 @@ export const taskService = {
     if (!updated) {
       throw new NotFoundError('TASK_NOT_FOUND', 'Task not found in this organization');
     }
+    await cacheService.invalidatePattern(buildTaskOrgInvalidationPattern(organizationId));
     return taskToDto(updated as TaskLikeShape);
   },
 
@@ -216,6 +247,7 @@ export const taskService = {
     if (!updated) {
       throw new NotFoundError('TASK_NOT_FOUND', 'Task not found in this organization');
     }
+    await cacheService.invalidatePattern(buildTaskOrgInvalidationPattern(organizationId));
     return taskToDto(updated as TaskLikeShape);
   },
 
@@ -224,5 +256,6 @@ export const taskService = {
     if (!deleted) {
       throw new NotFoundError('TASK_NOT_FOUND', 'Task not found in this organization');
     }
+    await cacheService.invalidatePattern(buildTaskOrgInvalidationPattern(organizationId));
   },
 };
