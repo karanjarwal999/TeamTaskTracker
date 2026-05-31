@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import { requestIdMiddleware } from './middleware/request-id.middleware';
 import { errorMiddleware } from './middleware/error.middleware';
 import { successResponse } from './shared/helpers/response.helper';
+import { mountSwagger } from './config/swagger';
 import authRoutes from './modules/auth/auth.routes';
 import organizationRoutes from './modules/organizations/organization.routes';
 import membershipRoutes from './modules/memberships/membership.routes';
@@ -30,6 +31,9 @@ app.use('/memberships', membershipRoutes);
 app.use('/projects', projectRoutes);
 app.use('/tasks', taskRoutes);
 app.use('/analytics', analyticsRoutes);
+
+// Interactive API docs at /api/docs (spec also at /api/docs.json).
+mountSwagger(app);
 
 // Error handler MUST be the very last middleware.
 app.use(errorMiddleware);
