@@ -1,5 +1,5 @@
 import { Project } from '@/db/models/project.model';
-import type { CreateProjectInput, ListProjectsParams } from './project.types';
+import type { CreateProjectInput, ListProjectsParams, UpdateProjectInput } from './project.types';
 
 export const projectRepository = {
   async create(input: CreateProjectInput) {
@@ -21,5 +21,17 @@ export const projectRepository = {
       Project.countDocuments({ organizationId }),
     ]);
     return { rows, total };
+  },
+
+  async updateInOrg(projectId: string, organizationId: string, update: UpdateProjectInput) {
+    return Project.findOneAndUpdate(
+      { _id: projectId, organizationId },
+      { $set: update },
+      { new: true },
+    ).lean();
+  },
+
+  async deleteInOrg(projectId: string, organizationId: string) {
+    return Project.findOneAndDelete({ _id: projectId, organizationId }).lean();
   },
 };

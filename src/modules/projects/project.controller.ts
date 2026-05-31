@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
-import { successResponse } from '@/shared/helpers/response.helper';
+import { noContentResponse, successResponse } from '@/shared/helpers/response.helper';
 import { projectService } from './project.service';
-import type { CreateProjectBody, ListProjectsQuery } from './project.validation';
+import type { CreateProjectBody, ListProjectsQuery, UpdateProjectBody } from './project.validation';
 
 export const projectController = {
   async create(req: Request, res: Response): Promise<void> {
@@ -29,5 +29,20 @@ export const projectController = {
     const organizationId = req.membership!.organizationId;
     const project = await projectService.getById(projectId, organizationId);
     successResponse(res, 'Project', project);
+  },
+
+  async update(req: Request, res: Response): Promise<void> {
+    const projectId = req.params.id as string;
+    const organizationId = req.membership!.organizationId;
+    const body = req.body as UpdateProjectBody;
+    const project = await projectService.update(projectId, organizationId, body);
+    successResponse(res, 'Project updated', project);
+  },
+
+  async remove(req: Request, res: Response): Promise<void> {
+    const projectId = req.params.id as string;
+    const organizationId = req.membership!.organizationId;
+    await projectService.delete(projectId, organizationId);
+    noContentResponse(res);
   },
 };

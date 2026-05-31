@@ -10,6 +10,7 @@ import {
   createProjectSchema,
   listProjectsQuerySchema,
   projectIdParamSchema,
+  updateProjectSchema,
 } from './project.validation';
 
 const router = Router();
@@ -43,6 +44,28 @@ router.get(
   organizationMiddleware,
   validate({ params: projectIdParamSchema }),
   asyncHandler(projectController.getById),
+);
+
+// PATCH /projects/:id
+// ADMIN/MANAGER only. Updates name and/or description on a project in the org.
+router.patch(
+  '/:id',
+  authMiddleware,
+  organizationMiddleware,
+  rbac({ roles: [Role.ADMIN, Role.MANAGER] }),
+  validate({ params: projectIdParamSchema, body: updateProjectSchema }),
+  asyncHandler(projectController.update),
+);
+
+// DELETE /projects/:id
+// ADMIN/MANAGER only. Hard-delete a project in the org. Returns 204.
+router.delete(
+  '/:id',
+  authMiddleware,
+  organizationMiddleware,
+  rbac({ roles: [Role.ADMIN, Role.MANAGER] }),
+  validate({ params: projectIdParamSchema }),
+  asyncHandler(projectController.remove),
 );
 
 export default router;

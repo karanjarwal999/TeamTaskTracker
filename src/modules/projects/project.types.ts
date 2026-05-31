@@ -8,6 +8,11 @@ export interface CreateProjectInput {
   createdBy: Types.ObjectId | string;
 }
 
+export interface UpdateProjectInput {
+  name?: string;
+  description?: string;
+}
+
 export interface ListProjectsParams {
   page: number;
   limit: number;

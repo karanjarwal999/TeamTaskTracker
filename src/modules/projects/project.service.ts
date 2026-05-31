@@ -1,7 +1,7 @@
 import { NotFoundError } from '@/shared/errors/domain-errors';
 import { buildPagination, parsePageLimit } from '@/shared/helpers/pagination.helper';
 import { projectRepository } from './project.repository';
-import type { ListProjectsResult, ProjectDto } from './project.types';
+import type { ListProjectsResult, ProjectDto, UpdateProjectInput } from './project.types';
 import type { ListProjectsQuery } from './project.validation';
 
 interface ProjectLikeShape {
@@ -53,5 +53,24 @@ export const projectService = {
       data: rows.map((r) => projectToDto(r as ProjectLikeShape)),
       pagination: buildPagination(params.page, params.limit, total),
     };
+  },
+
+  async update(
+    projectId: string,
+    organizationId: string,
+    update: UpdateProjectInput,
+  ): Promise<ProjectDto> {
+    const doc = await projectRepository.updateInOrg(projectId, organizationId, update);
+    if (!doc) {
+      throw new NotFoundError('PROJECT_NOT_FOUND', 'Project not found in this organization');
+    }
+    return projectToDto(doc as ProjectLikeShape);
+  },
+
+  async delete(projectId: string, organizationId: string): Promise<void> {
+    const doc = await projectRepository.deleteInOrg(projectId, organizationId);
+    if (!doc) {
+      throw new NotFoundError('PROJECT_NOT_FOUND', 'Project not found in this organization');
+    }
   },
 };
