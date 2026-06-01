@@ -25,7 +25,7 @@ The project demonstrates:
 | Database          | MongoDB Atlas + Mongoose    |
 | Cache             | Redis                       |
 | Validation        | Zod                         |
-| Authentication    | Local password hash (bcrypt); Firebase Auth optional |
+| Authentication    | Local password hash (scrypt); Firebase Auth optional |
 | Authorization     | Backend-issued JWT + RBAC   |
 | API Documentation | Swagger / OpenAPI           |
 | Testing           | Jest + Supertest            |
@@ -71,8 +71,11 @@ Copy `.env.example` to `.env` and fill in the values below. The app validates en
 PORT=5000
 NODE_ENV=development
 
-# MongoDB Atlas connection string (mongodb+srv://...)
-MONGO_URI=MONGO_URI=mongodb://localhost:27017/team-task-tracker
+# MongoDB connection string. Atlas (mongodb+srv://...) or local Mongo.
+# Local replica set required for org-create / invite transactions:
+#   docker run -d -p 27017:27017 mongo:7 --replSet rs0 && \
+#   docker exec <cid> mongosh --eval 'rs.initiate()'
+MONGO_URI=mongodb://localhost:27017/team-task-tracker?directConnection=true&replicaSet=rs0
 
 # Redis. When running via docker compose, use redis://redis:6379
 # When running the API directly on the host, use redis://localhost:6379
@@ -84,7 +87,7 @@ JWT_REFRESH_SECRET=your_jwt_refresh_secret_here
 ACCESS_TOKEN_EXPIRES_IN=15m
 REFRESH_TOKEN_EXPIRES_IN=7d
 
-# Firebase (OPTIONAL — disabled by default; auth uses a local bcrypt hash).
+# Firebase (OPTIONAL — disabled by default; auth uses a local scrypt hash).
 # Leave blank unless you re-enable the Firebase blocks in auth.service.ts and admin.seed.ts.
 FIREBASE_PROJECT_ID=
 FIREBASE_CLIENT_EMAIL=
@@ -96,7 +99,7 @@ CORS_ORIGINS=http://localhost:3000
 
 # --- Admin bootstrap (consumed by `npm run seed:admin`) ---
 ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=AdminPass@1234
+ADMIN_PASSWORD="AdminPass#1234"   # quote values containing `#` — dotenv treats it as a comment otherwise
 ADMIN_NAME=System Admin
 BOOTSTRAP_ORG_NAME=Bootstrap Organization
 ```
@@ -142,7 +145,7 @@ npm run seed:admin
 
 This script is **idempotent** and does the following:
 
-1. Creates the **User** document in MongoDB with a bcrypt hash of `ADMIN_PASSWORD`.
+1. Creates the **User** document in MongoDB with a scrypt hash of `ADMIN_PASSWORD`.
 2. Creates a **bootstrap Organization** (`BOOTSTRAP_ORG_NAME`).
 3. Attaches the admin to that org with the **ADMIN** role.
 
@@ -317,6 +320,94 @@ Returns overdue counts per assignee and average completion time, computed via a 
 
 ---
 
+## Running Tests
+
+The full walkthrough above is also exercised end-to-end by the integration test suite, so a reviewer can verify everything in one command — **no Docker, Atlas, or Redis needed**. The harness boots a single-node `mongodb-memory-server` replica set in-process and mocks the Redis cache seam.
+
+```bash
+npm test
+```
+
+Expected output (3 suites, 36 tests, ~25–30s):
+
+```
+PASS tests/integration/full-flow.spec.ts
+  Full-flow walkthrough — admin → manager → member
+    Public / health
+      ✓ GET /health → 200
+      ✓ GET /api/docs.json → 200
+    Phase 1 — Admin onboarding
+      ✓ POST /auth/login as seeded admin → 200 with token pair
+      ✓ GET /organizations lists the bootstrap org with role ADMIN
+      ✓ POST /organizations creates Acme and grants caller ADMIN atomically
+      ✓ GET /organizations/:id returns the new org
+    Phase 2 — Project setup
+      ✓ POST /projects creates a project under Acme
+      ✓ GET /projects lists the project
+      ✓ GET /projects/:id returns the project
+    Phase 3 — Invites (admin → manager + member)
+      ✓ POST /organizations/:id/invite creates a MANAGER and returns initialPassword
+      ✓ POST /organizations/:id/invite creates a MEMBER
+      ✓ GET /organizations/:id/memberships shows admin + manager + member
+    Phase 4 — Manager workflow
+      ✓ POST /auth/login as manager with invite-issued initialPassword
+      ✓ POST /tasks creates a HIGH-priority task assigned to the member
+      ✓ GET /tasks (manager view) sees all org tasks
+      ✓ GET /tasks/:id returns the task
+      ✓ PATCH /tasks/:id updates description + priority
+    Phase 5 — Member workflow + status state machine
+      ✓ POST /auth/login as member
+      ✓ GET /tasks (member view) sees only assigned tasks
+      ✓ PATCH /tasks/:id/status TODO → IN_PROGRESS
+      ✓ PATCH /tasks/:id/status IN_PROGRESS → IN_REVIEW
+      ✓ PATCH /tasks/:id/status IN_REVIEW → DONE stamps completedAt
+    Phase 6 — Analytics
+      ✓ GET /analytics/tasks returns the analytics envelope to admin
+    Phase 7 — RBAC negative checks
+      ✓ MEMBER POST /tasks → 403 FORBIDDEN_ROLE
+      ✓ MEMBER POST /organizations/:id/invite → 403 FORBIDDEN_ROLE
+      ✓ Unauthenticated GET /organizations → 401
+    Phase 8 — Admin manages memberships
+      ✓ PATCH /memberships/:id promotes member to MANAGER
+      ✓ DELETE /memberships/:id revokes the original manager
+    Phase 9 — Auth refresh + change-password
+      ✓ POST /auth/refresh rotates the admin token pair
+      ✓ POST /auth/refresh with the OLD token now returns 401
+      ✓ POST /auth/change-password updates the password and re-login succeeds
+    Phase 10 — Project + task cleanup
+      ✓ PATCH /projects/:id renames the project
+      ✓ DELETE /tasks/:id removes the task
+      ✓ DELETE /projects/:id removes the project
+
+PASS tests/integration/task-transitions.spec.ts
+  ✓ TODO → DONE → 422 INVALID_TRANSITION
+
+PASS tests/integration/rbac.spec.ts
+  ✓ MEMBER POST /tasks → 403 FORBIDDEN_ROLE
+
+Test Suites: 3 passed, 3 total
+Tests:       36 passed, 36 total
+```
+
+### Layout
+
+```
+tests/
+├── setup.ts                          # boots in-memory replica set, mocks Redis cache
+├── helpers/
+│   ├── auth.helper.ts                # mints backend access tokens for seeded users
+│   ├── factory.ts                    # buildUser/Org/Membership/Project/Task seeders
+│   └── request.ts                    # supertest wrapper that attaches headers
+└── integration/
+    ├── full-flow.spec.ts             # the reviewer walkthrough, end-to-end
+    ├── rbac.spec.ts                  # FR-23 (a) — MEMBER cannot create tasks
+    └── task-transitions.spec.ts      # FR-23 (b) — TODO → DONE rejected
+```
+
+The first run downloads the in-memory Mongo binary (~50–80 MB, cached after); subsequent runs start in ~5 seconds.
+
+---
+
 ## API Surface
 
 | Method | Path                              | Roles                  |
@@ -348,7 +439,7 @@ All org-scoped routes require an `x-organization-id` header.
 
 ## Authentication
 
-Password verification runs against a **bcrypt hash stored on the `User` document**. Firebase Auth is supported but **disabled by default** — the env vars are optional and Firebase calls in `auth.service.ts`, `admin.seed.ts`, and `firebase-auth.ts` are gated behind `=== FIREBASE (DISABLED) ===` comment blocks.
+Password verification runs against a **scrypt hash stored on the `User` document** (via `node:crypto`, no external dependency). Firebase Auth is supported but **disabled by default** — the env vars are optional and Firebase calls in `auth.service.ts`, `admin.seed.ts`, and `firebase-auth.ts` are gated behind `=== FIREBASE (DISABLED) ===` comment blocks.
 
 To re-enable Firebase:
 
@@ -385,9 +476,9 @@ ID-based reads (`GET /tasks/:id`, `GET /projects/:id`, `GET /organizations/:id`)
 npm run dev          # ts-node-dev hot reload
 npm run build        # tsc + tsc-alias
 npm run start        # node dist/server.js
-npm run test         # jest --runInBand
+npm run test         # jest --runInBand (in-memory Mongo, no infra needed)
 npm run lint         # eslint
-npm run seed:admin   # bootstrap admin user, Firebase + DB + first org
+npm run seed:admin   # bootstrap admin user + first org in Mongo
 ```
 
 ---
