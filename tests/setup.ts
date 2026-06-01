@@ -19,6 +19,18 @@ jest.mock('@/shared/cache/cache.service', () => ({
   },
 }));
 
+// Silence the structured logger in tests. The error middleware logs every 4xx
+// at `warn`, which Jest would otherwise dump as a "console.warn" stack trace
+// next to perfectly green tests, confusing reviewers reading the output.
+jest.mock('@/shared/utils/logger', () => ({
+  logger: {
+    info: () => undefined,
+    warn: () => undefined,
+    error: () => undefined,
+    debug: () => undefined,
+  },
+}));
+
 import mongoose from 'mongoose';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 
