@@ -1,28 +1,37 @@
-import { admin } from '@/config/firebase';
+// === FIREBASE (DISABLED) ===
+// Re-enable by uncommenting the two imports below and the Firebase blocks
+// inside `login` and `changePassword`, then delete the DB-hash fallbacks.
+// import { admin } from '@/config/firebase';
+// import { firebaseAuth, FirebaseSignInError } from '@/shared/firebase/firebase-auth';
+// === END FIREBASE ===
 import { signAccess, signRefresh, verifyRefresh } from '@/shared/jwt/jwt.helper';
 import { UnauthorizedError, ForbiddenError } from '@/shared/errors/domain-errors';
-import { firebaseAuth, FirebaseSignInError } from '@/shared/firebase/firebase-auth';
+import { hashPassword, verifyPassword } from '@/shared/utils/password';
 import { authRepository } from './auth.repository';
 import type { LoginResult, ChangePasswordResult, RefreshResult } from './auth.types';
 
 export const authService = {
   async login(email: string, password: string): Promise<LoginResult> {
-    // 1) Verify credentials with Firebase REST (signInWithPassword).
-    let signIn;
-    try {
-      signIn = await firebaseAuth.signInWithPassword(email, password);
-    } catch (err) {
-      if (err instanceof FirebaseSignInError) {
-        throw new UnauthorizedError('INVALID_CREDENTIALS', 'Email or password is incorrect');
-      }
-      throw err;
+    // 1) Look up the local User record by email (includes passwordHash).
+    let user = await authRepository.findUserByEmail(email);
+    if (!user) {
+      throw new UnauthorizedError('INVALID_CREDENTIALS', 'Email or password is incorrect');
     }
 
-    // 2) Look up the local User record by email.
-    let user = await authRepository.findUserByEmail(signIn.email);
-    if (!user) {
-      // Firebase has the user, but our DB doesn't — treat as not-invited.
-      throw new ForbiddenError('USER_NOT_INVITED', 'No invitation found for this email');
+    // 2) Verify credentials against the locally-stored hash.
+    // === FIREBASE (DISABLED) ===
+    // let signIn;
+    // try {
+    //   signIn = await firebaseAuth.signInWithPassword(email, password);
+    // } catch (err) {
+    //   if (err instanceof FirebaseSignInError) {
+    //     throw new UnauthorizedError('INVALID_CREDENTIALS', 'Email or password is incorrect');
+    //   }
+    //   throw err;
+    // }
+    // === END FIREBASE ===
+    if (!user.passwordHash || !verifyPassword(password, user.passwordHash)) {
+      throw new UnauthorizedError('INVALID_CREDENTIALS', 'Email or password is incorrect');
     }
 
     // 3) Confirm at least one Membership exists.
@@ -31,9 +40,15 @@ export const authService = {
       throw new ForbiddenError('USER_NOT_INVITED', 'User has no organization memberships');
     }
 
-    // 4) First-login side effects: attach firebaseUid, flip isRegistered.
-    if (!user.firebaseUid || !user.isRegistered) {
-      const updated = await authRepository.attachFirebaseRegistration(user._id, signIn.localId);
+    // 4) First-login side effect: flip isRegistered.
+    // === FIREBASE (DISABLED) ===
+    // if (!user.firebaseUid || !user.isRegistered) {
+    //   const updated = await authRepository.attachFirebaseRegistration(user._id, signIn.localId);
+    //   if (updated) user = updated;
+    // }
+    // === END FIREBASE ===
+    if (!user.isRegistered) {
+      const updated = await authRepository.markRegistered(user._id);
       if (updated) user = updated;
     }
 
@@ -61,24 +76,33 @@ export const authService = {
     currentPassword: string,
     newPassword: string,
   ): Promise<ChangePasswordResult> {
-    // 1) Verify current password by attempting a Firebase sign-in.
-    let signIn;
-    try {
-      signIn = await firebaseAuth.signInWithPassword(email, currentPassword);
-    } catch (err) {
-      if (err instanceof FirebaseSignInError) {
-        throw new UnauthorizedError(
-          'INVALID_CREDENTIALS',
-          'Email or current password is incorrect',
-        );
-      }
-      throw err;
+    // 1) Look up the user and verify the current password against the stored hash.
+    const user = await authRepository.findUserByEmail(email);
+    if (!user || !user.passwordHash || !verifyPassword(currentPassword, user.passwordHash)) {
+      throw new UnauthorizedError('INVALID_CREDENTIALS', 'Email or current password is incorrect');
     }
 
-    // 2) Update password in Firebase via Admin SDK (newPassword stays out of our DB).
-    await admin.auth().updateUser(signIn.localId, { password: newPassword });
+    // === FIREBASE (DISABLED) ===
+    // let signIn;
+    // try {
+    //   signIn = await firebaseAuth.signInWithPassword(email, currentPassword);
+    // } catch (err) {
+    //   if (err instanceof FirebaseSignInError) {
+    //     throw new UnauthorizedError(
+    //       'INVALID_CREDENTIALS',
+    //       'Email or current password is incorrect',
+    //     );
+    //   }
+    //   throw err;
+    // }
+    // await admin.auth().updateUser(signIn.localId, { password: newPassword });
+    // return { id: signIn.localId };
+    // === END FIREBASE ===
 
-    return { id: signIn.localId };
+    // 2) Replace the stored hash with one derived from newPassword.
+    await authRepository.updatePasswordHash(user._id, hashPassword(newPassword));
+
+    return { id: String(user._id) };
   },
 
   async refresh(refreshToken: string): Promise<RefreshResult> {

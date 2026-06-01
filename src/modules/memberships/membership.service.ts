@@ -1,10 +1,14 @@
 import { randomInt } from 'crypto';
 import mongoose from 'mongoose';
 import type { HydratedDocument } from 'mongoose';
-import { admin } from '@/config/firebase';
+// === FIREBASE (DISABLED) ===
+// Re-enable by uncommenting and restoring the Firebase block inside `invite`.
+// import { admin } from '@/config/firebase';
+// === END FIREBASE ===
 import { ConflictError, NotFoundError } from '@/shared/errors/domain-errors';
 import { logger } from '@/shared/utils/logger';
 import { cacheService } from '@/shared/cache/cache.service';
+import { hashPassword } from '@/shared/utils/password';
 import { buildOrgListCacheKey } from '@/modules/organizations/organization.constants';
 import { userRepository } from '@/modules/users/user.repository';
 import { membershipRepository } from './membership.repository';
@@ -27,14 +31,16 @@ function generateInitialPassword(): string {
   return out;
 }
 
-function isFirebaseEmailAlreadyExists(err: unknown): boolean {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    'code' in err &&
-    (err as { code: unknown }).code === 'auth/email-already-exists'
-  );
-}
+// === FIREBASE (DISABLED) ===
+// function isFirebaseEmailAlreadyExists(err: unknown): boolean {
+//   return (
+//     typeof err === 'object' &&
+//     err !== null &&
+//     'code' in err &&
+//     (err as { code: unknown }).code === 'auth/email-already-exists'
+//   );
+// }
+// === END FIREBASE ===
 
 function userToSummary(doc: HydratedDocument<UserDocument>): UserSummaryDto {
   return {
@@ -108,26 +114,31 @@ export const membershipService = {
       }
     }
 
-    // Branch A: No local User. Provision a Firebase user, then create local records.
-    let firebaseUid: string;
-    let initialPassword: string | null = generateInitialPassword();
-    try {
-      const fbUser = await admin.auth().createUser({
-        email: normalizedEmail,
-        password: initialPassword,
-        emailVerified: false,
-      });
-      firebaseUid = fbUser.uid;
-    } catch (err) {
-      if (isFirebaseEmailAlreadyExists(err)) {
-        // Partial-state recovery: Firebase already has this user (no local record).
-        const fbUser = await admin.auth().getUserByEmail(normalizedEmail);
-        firebaseUid = fbUser.uid;
-        initialPassword = null;
-      } else {
-        throw err;
-      }
-    }
+    // Branch A: No local User. Generate an initial password, hash it, and create local records.
+    const initialPassword: string = generateInitialPassword();
+    const passwordHash = hashPassword(initialPassword);
+
+    // === FIREBASE (DISABLED) ===
+    // let firebaseUid: string;
+    // let initialPassword: string | null = generateInitialPassword();
+    // try {
+    //   const fbUser = await admin.auth().createUser({
+    //     email: normalizedEmail,
+    //     password: initialPassword,
+    //     emailVerified: false,
+    //   });
+    //   firebaseUid = fbUser.uid;
+    // } catch (err) {
+    //   if (isFirebaseEmailAlreadyExists(err)) {
+    //     // Partial-state recovery: Firebase already has this user (no local record).
+    //     const fbUser = await admin.auth().getUserByEmail(normalizedEmail);
+    //     firebaseUid = fbUser.uid;
+    //     initialPassword = null;
+    //   } else {
+    //     throw err;
+    //   }
+    // }
+    // === END FIREBASE ===
 
     const session = await mongoose.startSession();
     try {
@@ -135,7 +146,7 @@ export const membershipService = {
       let createdMembership: HydratedDocument<MembershipDocument> | undefined;
       await session.withTransaction(async () => {
         createdUser = await userRepository.create(
-          { email: normalizedEmail, name: normalizedEmail, firebaseUid },
+          { email: normalizedEmail, name: normalizedEmail, passwordHash },
           session,
         );
         createdMembership = await membershipRepository.create(

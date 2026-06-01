@@ -4,6 +4,8 @@ import { toJSONOption } from '@/shared/utils/mongoose';
 const userSchema = new Schema(
   {
     firebaseUid: { type: String, required: false },
+    // Local password hash — used while Firebase Auth is disabled.
+    passwordHash: { type: String, required: false, select: false },
     name: { type: String, required: true, trim: true },
     email: {
       type: String,

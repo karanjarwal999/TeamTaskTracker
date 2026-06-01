@@ -4,7 +4,8 @@ import { Membership } from '@/db/models/membership.model';
 
 export const authRepository = {
   async findUserByEmail(email: string) {
-    return User.findOne({ email: email.toLowerCase() });
+    // Includes the (select:false) passwordHash — login/change-password need it.
+    return User.findOne({ email: email.toLowerCase() }).select('+passwordHash');
   },
 
   async findUserById(userId: string) {
@@ -22,6 +23,14 @@ export const authRepository = {
       { $set: { firebaseUid, isRegistered: true } },
       { new: true },
     );
+  },
+
+  async markRegistered(userId: Types.ObjectId) {
+    return User.findByIdAndUpdate(userId, { $set: { isRegistered: true } }, { new: true });
+  },
+
+  async updatePasswordHash(userId: Types.ObjectId, passwordHash: string) {
+    return User.findByIdAndUpdate(userId, { $set: { passwordHash } }, { new: true });
   },
 
   // Atomically bumps refreshTokenVersion only if the incoming version still matches.

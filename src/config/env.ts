@@ -13,10 +13,12 @@ const envSchema = z.object({
   ACCESS_TOKEN_EXPIRES_IN: z.string().default('15m'),
   REFRESH_TOKEN_EXPIRES_IN: z.string().default('7d'),
 
-  FIREBASE_PROJECT_ID: z.string().min(1, 'FIREBASE_PROJECT_ID is required'),
-  FIREBASE_CLIENT_EMAIL: z.string().min(1, 'FIREBASE_CLIENT_EMAIL is required'),
-  FIREBASE_PRIVATE_KEY: z.string().min(1, 'FIREBASE_PRIVATE_KEY is required'),
-  FIREBASE_API_KEY: z.string().min(1, 'FIREBASE_API_KEY is required'),
+  // Firebase is disabled; vars kept optional so the app boots without creds.
+  // Re-tighten with .min(1, ...) when re-enabling Firebase.
+  FIREBASE_PROJECT_ID: z.string().optional(),
+  FIREBASE_CLIENT_EMAIL: z.string().optional(),
+  FIREBASE_PRIVATE_KEY: z.string().optional(),
+  FIREBASE_API_KEY: z.string().optional(),
 
   CORS_ORIGINS: z
     .string()

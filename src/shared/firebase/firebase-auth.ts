@@ -20,8 +20,10 @@ export class FirebaseSignInError extends Error {
 
 export const firebaseAuth = {
   async signInWithPassword(email: string, password: string): Promise<SignInResult> {
+    // FIREBASE_API_KEY is optional in env (Firebase disabled); asserted here because
+    // this function only runs when Firebase has been re-enabled at call-sites.
     const url = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(
-      env.FIREBASE_API_KEY,
+      env.FIREBASE_API_KEY!,
     )}`;
     const res = await fetch(url, {
       method: 'POST',

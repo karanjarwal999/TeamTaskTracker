@@ -4,7 +4,8 @@ import { User } from '@/db/models/user.model';
 interface CreateUserInput {
   email: string;
   name: string;
-  firebaseUid: string;
+  firebaseUid?: string;
+  passwordHash?: string;
   isRegistered?: boolean;
   refreshTokenVersion?: number;
 }
@@ -25,6 +26,7 @@ export const userRepository = {
           email: input.email.toLowerCase(),
           name: input.name,
           firebaseUid: input.firebaseUid,
+          passwordHash: input.passwordHash,
           isRegistered: input.isRegistered ?? false,
           refreshTokenVersion: input.refreshTokenVersion ?? 0,
         },
@@ -32,6 +34,16 @@ export const userRepository = {
       { session },
     );
     return docs[0]!;
+  },
+
+  // Used by auth.service during login/change-password — passwordHash is select:false
+  // on the schema, so callers that need the hash must use this method.
+  async findByEmailWithPassword(email: string) {
+    return User.findOne({ email: email.toLowerCase() }).select('+passwordHash');
+  },
+
+  async setPasswordHash(userId: Types.ObjectId | string, passwordHash: string) {
+    return User.findByIdAndUpdate(userId, { $set: { passwordHash } }, { new: true });
   },
 
   async attachFirebaseUid(userId: Types.ObjectId | string, firebaseUid: string) {

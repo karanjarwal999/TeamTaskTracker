@@ -3,12 +3,17 @@ import { env } from './config/env';
 import app from './app';
 import { connectMongo, disconnectMongo } from './db/connection/mongo';
 import { connectRedis, disconnectRedis } from './config/redis';
-import { initFirebase } from './config/firebase';
+// === FIREBASE (DISABLED) ===
+// Re-enable by uncommenting this import and the initFirebase() call in bootstrap().
+// import { initFirebase } from './config/firebase';
+// === END FIREBASE ===
 import { logger } from './shared/utils/logger';
 
 async function bootstrap(): Promise<void> {
-  initFirebase();
-  logger.info('Firebase Admin initialized');
+  // === FIREBASE (DISABLED) ===
+  // initFirebase();
+  // logger.info('Firebase Admin initialized');
+  // === END FIREBASE ===
 
   await connectMongo();
   logger.info('Mongo connected');

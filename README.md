@@ -25,7 +25,7 @@ The project demonstrates:
 | Database          | MongoDB Atlas + Mongoose    |
 | Cache             | Redis                       |
 | Validation        | Zod                         |
-| Authentication    | Firebase Auth (email/pwd)   |
+| Authentication    | Local password hash (bcrypt); Firebase Auth optional |
 | Authorization     | Backend-issued JWT + RBAC   |
 | API Documentation | Swagger / OpenAPI           |
 | Testing           | Jest + Supertest            |
@@ -84,14 +84,11 @@ JWT_REFRESH_SECRET=your_jwt_refresh_secret_here
 ACCESS_TOKEN_EXPIRES_IN=15m
 REFRESH_TOKEN_EXPIRES_IN=7d
 
-# Firebase Admin SDK service account (Project settings → Service accounts → Generate new private key)
+# Firebase (OPTIONAL — disabled by default; auth uses a local bcrypt hash).
+# Leave blank unless you re-enable the Firebase blocks in auth.service.ts and admin.seed.ts.
 FIREBASE_PROJECT_ID=
 FIREBASE_CLIENT_EMAIL=
-# Paste the full PEM block. Use literal \n escapes inside one line OR a multi-line quoted value.
 FIREBASE_PRIVATE_KEY=
-
-# Firebase Web API Key (Project settings → General → Web API Key)
-# Used by the backend to verify passwords via signInWithPassword REST.
 FIREBASE_API_KEY=
 
 # Comma-separated list, e.g. http://localhost:3000,https://app.example.com
@@ -118,7 +115,8 @@ npm install
 
 ```bash
 cp .env.example .env
-# then fill in MONGO_URI, FIREBASE_*, JWT_SECRET, JWT_REFRESH_SECRET
+# then fill in MONGO_URI, JWT_SECRET, JWT_REFRESH_SECRET
+# FIREBASE_* are optional — leave blank unless you re-enable Firebase auth
 ```
 
 ### 3. Start Redis (and optionally the API) with Docker
@@ -144,10 +142,9 @@ npm run seed:admin
 
 This script is **idempotent** and does the following:
 
-1. Creates the admin user in **Firebase Auth** with `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
-2. Creates the matching **User** document in MongoDB (linked to the Firebase UID).
-3. Creates a **bootstrap Organization** (`BOOTSTRAP_ORG_NAME`).
-4. Attaches the admin to that org with the **ADMIN** role.
+1. Creates the **User** document in MongoDB with a bcrypt hash of `ADMIN_PASSWORD`.
+2. Creates a **bootstrap Organization** (`BOOTSTRAP_ORG_NAME`).
+3. Attaches the admin to that org with the **ADMIN** role.
 
 Re-running it is safe — every step skips if the record already exists.
 
@@ -346,6 +343,18 @@ Returns overdue counts per assignee and average completion time, computed via a 
 | GET    | `/analytics/tasks`                | ADMIN, MANAGER         |
 
 All org-scoped routes require an `x-organization-id` header.
+
+---
+
+## Authentication
+
+Password verification runs against a **bcrypt hash stored on the `User` document**. Firebase Auth is supported but **disabled by default** — the env vars are optional and Firebase calls in `auth.service.ts`, `admin.seed.ts`, and `firebase-auth.ts` are gated behind `=== FIREBASE (DISABLED) ===` comment blocks.
+
+To re-enable Firebase:
+
+1. Populate `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_API_KEY` in `.env`.
+2. Tighten the four `FIREBASE_*` fields in `src/config/env.ts` to `.min(1, ...)`.
+3. Uncomment the Firebase blocks in `src/modules/auth/auth.service.ts` and `src/db/seed/admin.seed.ts` and remove the local-hash fallbacks.
 
 ---
 
